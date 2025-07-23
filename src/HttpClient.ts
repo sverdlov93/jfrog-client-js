@@ -71,9 +71,9 @@ export class HttpClient {
             }
 
             // Check if this is a redirect error that contains a reactivate-server location
-            if (error.response && error.response.status >= 300 && error.response.status < 400) {
-                const location = error.response.headers?.location;
-                if (location && location.includes('reactivate-server')) {
+            if (error.response?.headers?.location) {
+                const location: string = error.response.headers.location;
+                if (location.includes('reactivate-server')) {
                     throw new ServerNotActiveError(location);
                 }
             }
@@ -98,7 +98,7 @@ export class HttpClient {
     public static validateServerIsActive(options: Record<string, any>, responseDetails: { headers: Record<string, string> }) {
         let movedLocation: string | undefined = responseDetails?.headers['location'];
         if (movedLocation && movedLocation.includes('reactivate-server')) {
-            const error = new ServerNotActiveError(movedLocation);
+            const error: ServerNotActiveError = new ServerNotActiveError(movedLocation);
             // Also add the activationUrl as a direct property in case the error gets wrapped
             (error as any).activationUrl = movedLocation;
             throw error;
