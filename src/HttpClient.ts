@@ -63,7 +63,7 @@ export class HttpClient {
             if (error.response && error.response.status >= 300 && error.response.status < 400) {
                 const location: string = error.response.headers?.location;
                 if (location && location.includes('reactivate-server')) {
-                    const serverNotActiveError = new ServerNotActiveError(location);
+                    const serverNotActiveError: ServerNotActiveError = new ServerNotActiveError(location);
                     // Ensure the activationUrl property is set for backward compatibility
                     (serverNotActiveError as any).activationUrl = location;
                     throw serverNotActiveError;
@@ -82,7 +82,7 @@ export class HttpClient {
 
             // Check if the error has an activationUrl property (indicating it came from beforeRedirect)
             if (error.activationUrl) {
-                const serverNotActiveError = new ServerNotActiveError(error.activationUrl);
+                const serverNotActiveError: ServerNotActiveError = new ServerNotActiveError(error.activationUrl);
                 (serverNotActiveError as any).activationUrl = error.activationUrl;
                 throw serverNotActiveError;
             }
