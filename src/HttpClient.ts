@@ -59,26 +59,35 @@ export class HttpClient {
         try {
             return await this._axiosInstance(requestParams);
         } catch (error: any) {
-            // In Axios 1.x, errors thrown in beforeRedirect might be wrapped in AxiosError
-            // We need to check if the original error was a ServerNotActiveError
-            if (error.cause instanceof ServerNotActiveError) {
-                throw error.cause; // Re-throw the original ServerNotActiveError
-            }
-
-            // Also check if this error has activationUrl property (it might have been added by beforeRedirect)
-            if (error.activationUrl) {
-                throw new ServerNotActiveError(error.activationUrl);
-            }
-
-            // Check if this is a redirect error that contains a reactivate-server location
-            if (error.response?.headers?.location) {
-                const location: string = error.response.headers.location;
-                if (location.includes('reactivate-server')) {
-                    throw new ServerNotActiveError(location);
+            // Check for redirect errors that might indicate a server not active response
+            if (error.response && error.response.status >= 300 && error.response.status < 400) {
+                const location: string = error.response.headers?.location;
+                if (location && location.includes('reactivate-server')) {
+                    const serverNotActiveError = new ServerNotActiveError(location);
+                    // Ensure the activationUrl property is set for backward compatibility
+                    (serverNotActiveError as any).activationUrl = location;
+                    throw serverNotActiveError;
                 }
             }
 
-            throw error; // Re-throw other errors as-is
+            // Check if this is already a ServerNotActiveError (from beforeRedirect)
+            if (error instanceof ServerNotActiveError) {
+                throw error;
+            }
+
+            // In Axios 1.x, errors from beforeRedirect might be wrapped
+            if (error.cause instanceof ServerNotActiveError) {
+                throw error.cause;
+            }
+
+            // Check if the error has an activationUrl property (indicating it came from beforeRedirect)
+            if (error.activationUrl) {
+                const serverNotActiveError = new ServerNotActiveError(error.activationUrl);
+                (serverNotActiveError as any).activationUrl = error.activationUrl;
+                throw serverNotActiveError;
+            }
+
+            throw error;
         }
     }
 
