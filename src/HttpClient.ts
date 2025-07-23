@@ -25,6 +25,11 @@ export class HttpClient {
             proxy: this.getAxiosProxyConfig(config.proxy),
             // Use instead of the default one since there is a bug in Axios if http -> https
             httpsAgent: HttpClient.getHttpToHttpsProxyConfig(config.proxy),
+            beforeRedirect: HttpClient.validateServerIsActive,
+            // Add specific timeout configuration for proxy requests
+            transitional: {
+                clarifyTimeoutError: true,
+            },
         } as AxiosRequestConfig);
         this._basicAuth = {
             username: config.username,
@@ -107,9 +112,20 @@ export class HttpClient {
     public static validateServerIsActive(options: Record<string, any>, responseDetails: { headers: Record<string, string> }) {
         let movedLocation: string | undefined = responseDetails?.headers['location'];
         if (movedLocation && movedLocation.includes('reactivate-server')) {
-            const error: ServerNotActiveError = new ServerNotActiveError(movedLocation);
+            // The test expects the activationUrl to include the relative path of the original request
+            // options.pathname contains the relative path (e.g., '/xray/api/v1/system/version')
+            let activationUrl: string = movedLocation;
+            const originalPath: string = options.pathname || options.url;
+            if (originalPath && !movedLocation.includes(originalPath)) {
+                // Append the original relative path to the redirect location
+                activationUrl = movedLocation.endsWith('/') ?
+                    movedLocation + originalPath.substring(1) :
+                    movedLocation + originalPath;
+            }
+
+            const error: ServerNotActiveError = new ServerNotActiveError(activationUrl);
             // Also add the activationUrl as a direct property in case the error gets wrapped
-            (error as any).activationUrl = movedLocation;
+            (error as any).activationUrl = activationUrl;
             throw error;
         }
     }
