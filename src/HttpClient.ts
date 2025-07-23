@@ -56,7 +56,30 @@ export class HttpClient {
     }
 
     public async doRequest(requestParams: IRequestParams): Promise<IClientResponse> {
-        return await this._axiosInstance(requestParams);
+        try {
+            return await this._axiosInstance(requestParams);
+        } catch (error: any) {
+            // In Axios 1.x, errors thrown in beforeRedirect might be wrapped in AxiosError
+            // We need to check if the original error was a ServerNotActiveError
+            if (error.cause instanceof ServerNotActiveError) {
+                throw error.cause; // Re-throw the original ServerNotActiveError
+            }
+
+            // Also check if this error has activationUrl property (it might have been added by beforeRedirect)
+            if (error.activationUrl) {
+                throw new ServerNotActiveError(error.activationUrl);
+            }
+
+            // Check if this is a redirect error that contains a reactivate-server location
+            if (error.response && error.response.status >= 300 && error.response.status < 400) {
+                const location = error.response.headers?.location;
+                if (location && location.includes('reactivate-server')) {
+                    throw new ServerNotActiveError(location);
+                }
+            }
+
+            throw error; // Re-throw other errors as-is
+        }
     }
 
     public async doAuthRequest(requestParams: IRequestParams): Promise<IClientResponse> {
@@ -72,10 +95,13 @@ export class HttpClient {
      * Method to use for beforeRedirect attribute in IRequestParams.
      * Before redirecting checks if the target location for the redirect is for 'reactivate-server' and throws ServerNotActiveError if so.
      */
-    public static validateServerIsActive(_: Record<string, any>, responseDetails: { headers: Record<string, string> }) {
+    public static validateServerIsActive(options: Record<string, any>, responseDetails: { headers: Record<string, string> }) {
         let movedLocation: string | undefined = responseDetails?.headers['location'];
         if (movedLocation && movedLocation.includes('reactivate-server')) {
-            throw new ServerNotActiveError(movedLocation);
+            const error = new ServerNotActiveError(movedLocation);
+            // Also add the activationUrl as a direct property in case the error gets wrapped
+            (error as any).activationUrl = movedLocation;
+            throw error;
         }
     }
 

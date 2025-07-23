@@ -30,9 +30,9 @@ export class TestUtils {
             .search()
             .aqlSearch(
                 'items.find({' +
-                    '"repo":"artifactory-build-info",' +
-                    '"path":{"$match":"*"}}' +
-                    ').include("name","repo","path","created","size").sort({"$desc":["created"]}).limit(1)'
+                '"repo":"artifactory-build-info",' +
+                '"path":{"$match":"*"}}' +
+                ').include("name","repo","path","created","size").sort({"$desc":["created"]}).limit(1)'
             );
     }
 
